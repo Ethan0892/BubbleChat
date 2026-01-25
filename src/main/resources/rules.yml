@@ -1,0 +1,223 @@
+# BubbleChat Rules (rules.yml)
+#
+# This file is meant to be edited by server devs.
+# Runtime location: plugins/BubbleChat/rules.yml
+# Reload: /bchat reload
+#
+# =============================
+# Quick mental model (no regex)
+# =============================
+# A rule is basically:
+#   IF (scope matches) AND (text matches) THEN do actions in order.
+#
+# - scope:
+#   - chat    = player chat messages
+#   - command = full command line (starts with /)
+#
+# - match:
+#   Java regex. If regex is scary: think of it as a "smart contains".
+#   Helpful flags:
+#   - (?i) = case-insensitive
+#   - (?x) = free-spacing mode (whitespace in the regex is ignored, so you can format it)
+#   - (?ix) = both of the above
+#
+# YAML tips (prevents "why doesn't my regex work"):
+# - Prefer SINGLE QUOTES for match strings.
+#   Example: '(?i)\bhello\b'
+# - Double quotes interpret backslashes and \n etc.
+#
+# Each rule item supports these keys (unknown keys are ignored, so you can add notes):
+# - id: unique name (used for logging/cooldowns)
+# - enabled: true/false
+# - scope: chat | command
+# - match: Java regex
+# - actions: list of actions, applied in order
+# - about: optional plain-English description for humans (NOT used by the plugin)
+#
+# Supported action types:
+# - cooldown: per-player cooldown gate (blocks early)
+# - reply: send a MiniMessage message to the sender
+# - replace: modify the message and continue
+# - cancel: block message/command (can include a message)
+# - silent_cancel: block without telling sender (combine with reply if you want)
+# - run_command_console: run command as console (supports {player}, {message}, {1}..{9})
+# - run_command_player: run command as the sender
+# - notify_staff: alert online staff (and Discord if enabled)
+# - log: write a line to rules.log
+#
+# Variables in messages/commands:
+# - {player} {uuid} {message}
+# - {1}..{9} = regex capture groups
+# - {remaining_s} {remaining_ms} (only when cooldown blocks)
+#
+# MiniMessage is supported in all "message" strings.
+# Useful click actions:
+# - <click:open_url:'https://example.com'>link</click>
+# - <click:suggest_command:'/command '>suggest</click>
+# - <click:copy_to_clipboard:'text'>copy</click>
+
+rules:
+  # =========================================================
+  # FAQ auto-responders
+  # =========================================================
+  # Goal: Answer common questions AND hide the question from chat.
+  # Pattern: cooldown -> reply -> silent_cancel
+  #
+  # Regex tip:
+  # - Use (?ix) to keep patterns readable.
+  # - Use \b for word boundaries (prevents matching inside other words).
+  #
+  # Template:
+  # - id: faq-something
+  #   enabled: true
+  #   scope: chat
+  #   about: "Plain-English description"
+  #   match: '(?ix)\\b(?:word1|some\\s+phrase)\\b'
+  #   actions:
+  #     - type: cooldown
+  #       key: 'faq-something'
+  #       duration-ms: 20000
+  #       message: '<gray>Please wait {remaining_s}s before asking again.</gray>'
+  #     - type: reply
+  #       message: '<gold>Title</gold><newline><gray>Answer...</gray>'
+  #     - type: silent_cancel
+
+  - id: faq-discord
+    enabled: true
+    scope: chat
+    about: "When someone asks for the Discord link/invite, respond with a clickable link."
+    match: >-
+      (?ix)\b(?:
+        what(?:'s)?\s+the\s+discord
+        | what\s+is\s+the\s+discord
+        | discord\s+(?:link|invite)
+        | (?:join|get|need|want)\s+(?:the\s+)?discord
+        | invite\s+(?:me\s+)?(?:to\s+)?discord
+      )\b
+    actions:
+      - type: cooldown
+        key: "faq-discord"
+        duration-ms: 20000
+        message: "<gray>Please wait {remaining_s}s before asking again.</gray>"
+      - type: reply
+        message: "<dark_gray>⟡</dark_gray> <gold>ᴅɪꜱᴄᴏʀᴅ</gold> <dark_gray>⟡</dark_gray><newline><gray>Join here: </gray><click:open_url:'https://discord.gg/yourinvite'><aqua><underlined>discord.gg/yourinvite</underlined></aqua></click><newline><gray>Or click to paste: </gray><click:suggest_command:'https://discord.gg/yourinvite'><yellow><underlined>discord link</underlined></yellow></click>"
+      - type: silent_cancel
+
+  - id: faq-claim-land
+    enabled: true
+    scope: chat
+    about: "How to claim/protect land (GriefDefender basics)."
+    match: >-
+      (?ix)\b(?:
+        how\s+do\s+i\s+(?:claim|protect)(?:\s+(?:land|area))?
+        | how\s+to\s+(?:claim|protect)(?:\s+(?:land|area))?
+        | (?:claim|protect)\s+(?:land|area)\s+help
+        | how\s+do\s+i\s+claim\s+land
+      )\b\??
+    actions:
+      - type: cooldown
+        key: "faq-claim-land"
+        duration-ms: 20000
+        message: "<gray>Please wait {remaining_s}s before asking again.</gray>"
+      - type: reply
+        message: "<dark_gray>⟡</dark_gray> <gold>ʟᴀɴᴅ ᴄʟᴀɪᴍɪɴɢ</gold> <dark_gray>⟡</dark_gray><newline><gray>Quick guide: </gray><click:suggest_command:'/help land'><yellow><underlined>/help land</underlined></yellow></click><newline><gray>Common commands:</gray><newline><gray>• </gray><click:suggest_command:'/claim'><white>/claim</white></click> <dark_gray>- claim where you stand</dark_gray><newline><gray>• </gray><click:suggest_command:'/unclaim'><white>/unclaim</white></click> <dark_gray>- abandon your claim</dark_gray><newline><gray>• </gray><click:suggest_command:'/trust '><white>/trust &lt;player&gt;</white></click> <dark_gray>- allow a friend to build</dark_gray><newline><gray>• </gray><click:suggest_command:'/claiminfo'><white>/claiminfo</white></click> <dark_gray>- see claim details</dark_gray>"
+      - type: silent_cancel
+
+  - id: faq-trust-player
+    enabled: true
+    scope: chat
+    about: "How to trust/add a player in your claim."
+    match: >-
+      (?ix)\b(?:
+        how\s+do\s+i\s+(?:trust|add)\s+(?:a\s+)?friend
+        | how\s+to\s+trust\s+(?:a\s+)?player
+        | let\s+someone\s+build
+        | how\s+do\s+i\s+trust\s+someone
+      )\b\??
+    actions:
+      - type: cooldown
+        key: "faq-trust-player"
+        duration-ms: 20000
+        message: "<gray>Please wait {remaining_s}s before asking again.</gray>"
+      - type: reply
+        message: "<dark_gray>⟡</dark_gray> <gold>ᴛʀᴜꜱᴛ</gold> <dark_gray>⟡</dark_gray><newline><gray>Stand inside your claim, then use:</gray><newline><gray>• </gray><click:suggest_command:'/trust '><white>/trust &lt;player&gt;</white></click><newline><gray>Containers only:</gray><newline><gray>• </gray><click:suggest_command:'/containertrust '><white>/containertrust &lt;player&gt;</white></click>"
+      - type: silent_cancel
+
+  - id: cmd-ping
+    enabled: true
+    scope: command
+    match: '^/ping\b.*$'
+    actions:
+      - type: cooldown
+        duration-ms: 1500
+        message: "<red>Please wait {remaining_s}s before using /ping again.</red>"
+        key: "ping"
+      - type: reply
+        message: "<green>Pong!</green> <gray>(You ran: {message})</gray>"
+      - type: cancel
+
+  - id: cmd-help-land
+    enabled: true
+    scope: command
+    match: '^/help\s+land\b.*$'
+    actions:
+      - type: reply
+        message: "<gold>Land Help</gold><newline><gray>- Claim land: <white>/claim</white></gray><newline><gray>- Unclaim: <white>/unclaim</white></gray>"
+      - type: cancel
+
+  - id: bot-claim-land
+    enabled: true
+    scope: chat
+    match: '(?i)\bhow\s+do\s+i\s+claim\s+land\b\??'
+    actions:
+      - type: reply
+        message: "<gray>Hey <white>{player}</white>, click </gray><click:suggest_command:'/help land'><yellow>here</yellow></click><gray> for the guide.</gray>"
+      - type: silent_cancel
+
+  - id: block-crash-chars
+    enabled: true
+    scope: chat
+    match: '[\u0000-\u001F]'  # control chars
+    actions:
+      - type: cancel
+        message: "<red>Your message contained blocked characters.</red>"
+      - type: log
+        message: "[BLOCKED_CHARS] {player} => {message}"
+
+  - id: anti-repetitive
+    enabled: true
+    scope: chat
+    match: '(.)\1{7,}'  # 8+ repeating characters
+    actions:
+      - type: reply
+        message: "<gray>Please avoid spamming repeated characters.</gray>"
+      - type: silent_cancel
+      - type: notify_staff
+        message: "<red>[AntiSpam]</red> {player} used repetitive characters: <gray>{message}</gray>"
+      - type: log
+        message: "[REPEAT] {player} => {message}"
+
+  - id: block-invite-links
+    enabled: true
+    scope: chat
+    match: '(?i)discord\.(gg|com/invite)/\w+'
+    actions:
+      - type: reply
+        message: "<red>Invite links aren't allowed in chat.</red>"
+      - type: silent_cancel
+      - type: notify_staff
+        message: "<red>[Ads]</red> {player} tried to advertise: <gray>{message}</gray>"
+      - type: log
+        message: "[ADS] {player} => {message}"
+
+  - id: swear-filter
+    enabled: true
+    scope: chat
+    match: '(?i)\b(f+u+c+k|s+h+i+t|b+i+t+c+h|a+s+s+h+o+l+e)\b'
+    actions:
+      - type: replace
+        replacement: "****"
+      - type: notify_staff
+        message: "<yellow>[Swear]</yellow> {player}: <gray>{message}</gray>"
+      - type: log
+        message: "[SWEAR] {player} => {message}"

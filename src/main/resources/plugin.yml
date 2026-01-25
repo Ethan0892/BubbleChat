@@ -1,0 +1,158 @@
+name: BubbleChat
+version: 1.0.2
+main: dev.bubblecraft.bubblechat.BubbleChatPlugin
+api-version: '1.21'
+author: BubbleCraft
+softdepend:
+  - PlaceholderAPI
+  - Vault
+  - DiscordSRV
+  - ChatColor2
+commands:
+  bubblechat:
+    description: Main BubbleChat command
+    usage: /bubblechat <reload|info|remove>
+    aliases: [bchat]
+  msg:
+    description: Private message a player
+    usage: /msg <player> <message>
+    aliases: [m, tell, w, whisper]
+  reply:
+    description: Reply to the last private message
+    usage: /reply <message>
+    aliases: [r]
+  socialspy:
+    description: Toggle social spy
+    usage: /socialspy
+    aliases: [ss]
+  mute:
+    description: Mute a player
+    usage: /mute <player> [duration] [reason]
+  unmute:
+    description: Unmute a player
+    usage: /unmute <player>
+  ignore:
+    description: Ignore/unignore a player
+    usage: /ignore <player>
+  ignorelist:
+    description: List ignored players
+    usage: /ignorelist
+  ch:
+    description: Switch chat channel
+    usage: /ch <global|local|staff>
+    aliases: [channel]
+  local:
+    description: Switch to local/proximity chat
+    usage: /local
+    aliases: [lchat]
+  global:
+    description: Switch to global chat
+    usage: /global
+    aliases: [gchat]
+  chatmute:
+    description: Toggle global chat mute
+    usage: /chatmute [on|off]
+  shout:
+    description: Toggle shout mode (radius chat)
+    usage: /shout
+  announcements:
+    description: Toggle join announcements
+    usage: /announcements [on|off|toggle|status]
+    aliases: [ann]
+    permission: bubblechat.announcements.optout
+  motd:
+    description: Show the server MOTD message again
+    usage: /motd
+    aliases: [welcome]
+    permission: bubblechat.motd
+  clearchat:
+    description: Clear the chat for all players
+    usage: /clearchat [-s]
+    aliases: [cc]
+    permission: bubblechat.clearchat
+  me:
+    description: Send an action message (roleplay)
+    usage: /me <action>
+    aliases: [action]
+    permission: bubblechat.me
+  toggle:
+    description: Toggle chat-related preferences
+    usage: /toggle <join|quit|death|announcements|pm>
+    aliases: [togg]
+    permission: bubblechat.toggle
+permissions:
+  bubblechat.*:
+    default: op
+    children:
+      bubblechat.admin: true
+  bubblechat.admin:
+    default: op
+    children:
+      bubblechat.reload: true
+      bubblechat.moderation.mute: true
+      bubblechat.socialspy: true
+      bubblechat.channel.staff: true
+      bubblechat.bypass.spam: true
+      bubblechat.bypass.filter: true
+      bubblechat.format: true
+      bubblechat.color: true
+      bubblechat.placeholders: true
+      bubblechat.chat.spy: true
+      bubblechat.chat.shout: true
+      bubblechat.chat.question: true
+      bubblechat.alerts: true
+      bubblechat.spy.commands: true
+      bubblechat.announcements.optout: true
+      bubblechat.motd: true
+      bubblechat.clearchat: true
+      bubblechat.me: true
+      bubblechat.toggle: true
+      bubblechat.bypass.pmblock: true
+      bubblechat.item: true
+      bubblechat.moderation.remove: true
+  bubblechat.reload:
+    default: op
+  bubblechat.moderation.mute:
+    default: op
+  bubblechat.socialspy:
+    default: op
+  bubblechat.channel.staff:
+    default: op
+  bubblechat.bypass.spam:
+    default: op
+  bubblechat.bypass.filter:
+    default: op
+  bubblechat.format:
+    default: op
+  bubblechat.color:
+    default: op
+  bubblechat.placeholders:
+    default: op
+  bubblechat.chat.spy:
+    default: op
+  bubblechat.chat.shout:
+    default: op
+  bubblechat.chat.question:
+    default: op
+  bubblechat.alerts:
+    default: op
+  bubblechat.spy.commands:
+    default: op
+  bubblechat.spy.exempt:
+    default: op
+  bubblechat.announcements.optout:
+    default: true
+  bubblechat.motd:
+    default: true
+  bubblechat.clearchat:
+    default: op
+  bubblechat.me:
+    default: true
+  bubblechat.toggle:
+    default: true
+  bubblechat.bypass.pmblock:
+    default: op
+  bubblechat.item:
+    default: true
+  bubblechat.moderation.remove:
+    default: op

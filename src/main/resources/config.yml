@@ -1,0 +1,243 @@
+chat:
+  # Select which chat system BubbleChat should use.
+  # - channels: channel prefix + chat.format
+  # - radius: EssentialsChat-style radius chat (local radius + shout/question)
+  mode: channels
+
+  # If using mode=radius, this sets how many blocks a player's chat will travel.
+  # Set to 0 for global chat.
+  # Players with 'bubblechat.chat.spy' will see everything, regardless of this setting.
+  # Players with 'bubblechat.chat.shout' can override this by prefixing their message with an exclamation mark (!).
+  # Players with 'bubblechat.chat.question' can override this by prefixing their message with a question mark (?).
+  radius: 0
+
+  # EssentialsChat-style legacy (&) format.
+  # Used by:
+  # - mode=radius
+  # - mode=channels (combined with chat.channel-prefixes.<channel>)
+  format: '&f{DISPLAYNAME} &7 » &r{MESSAGE}'
+
+  # If true, the Essentials-style radius chat formats above are treated as MiniMessage templates.
+  # You can still use the {PLACEHOLDER} style tokens; BubbleChat will map them to MiniMessage placeholders.
+  # Example: "<white><displayname></white> <gray>»</gray> <message>"
+  radius-format-minimessage: false
+
+  # Optional per-type overrides for mode=radius.
+  #format-types: {}
+
+  # Optional group format overrides for mode=radius.
+  #group-formats: {}
+
+  # World aliases allow you to replace the world name with something different in the chat format.
+  world-aliases: {}
+
+  # Whether players should be placed into shout mode by default.
+  shout-default: false
+
+  # Whether a player's shout mode should persist across restarts.
+  persist-shout: false
+
+  # Whether chat questions should be enabled.
+  question-enabled: true
+
+  # Supported: global, local, staff
+  default-channel: global
+  local-radius-blocks: 100
+
+  # Channels mode: per-channel prefixes + chat.format
+  channel-prefixes:
+    global: "&7[G]&r "
+    local: "&7[L]&r "
+    staff: "&c[Staff]&r "
+
+  message:
+    # If true, players with bubblechat.format can use MiniMessage in their message.
+    allow-player-minimessage: true
+    # If false, MiniMessage tags are escaped unless player has bubblechat.format
+    escape-without-permission: true
+    # If true, strip legacy § codes from player messages
+    strip-legacy-section-colors: true
+    max-length: 256
+
+  chatcolor2:
+    # Optional compatibility with the ChatColor2 plugin.
+    # BubbleChat uses Adventure Components and does not receive ChatColor2's legacy chat colouring.
+    # When enabled, BubbleChat will:
+    # - Apply the player's ChatColor2 configured colour (if any)
+    # - Allow ChatColor2-style "&" codes in messages, respecting ChatColor2 permissions
+    # Notes:
+    # - This only applies when MiniMessage is not being used for the player's message
+    #   (e.g. they do not have bubblechat.format, or allow-player-minimessage=false).
+    # - Hex colours typed as "&#RRGGBB" are supported when the player has chatcolor.use-hex-codes.
+    enabled: true
+    apply-player-color: true
+    # If true, also applies the player's ChatColor2 colour as a base style when MiniMessage is used.
+    # This lets players keep their /chatcolor colour while still using MiniMessage for formatting.
+    apply-in-minimessage: true
+
+  item:
+    enabled: true
+    # The token players can type to show their held item.
+    token: "[item]"
+    permission: "bubblechat.item"
+
+  remove:
+    # Adds a clickable [x] to chat messages for moderators (Paper signed-message delete).
+    enabled: true
+    permission: "bubblechat.moderation.remove"
+    button: "[x]"
+    # How long a message stays removable (ms). 0 = never expire.
+    ttl-ms: 180000
+    # Broadcast a small notice when a message is removed
+    announce: false
+
+  clear:
+    # /clearchat will send this many blank lines
+    lines: 150
+    # Broadcast an announcement after clearing
+    announce: true
+    # MiniMessage supported. Use {by} for the executor name.
+    message: "<gray>Chat was cleared by <white>{by}</white>.</gray>"
+
+  me:
+    enabled: true
+    # MiniMessage supported. Placeholders: <player> <displayname> <message>
+    format: "<gray>*</gray> <white><player></white> <gray><message></gray>"
+
+mentions:
+  enabled: true
+  highlight-format: "<yellow>@<name></yellow>"
+  sound:
+    enabled: true
+    key: "minecraft:entity.experience_orb.pickup"
+    volume: 1.0
+    pitch: 1.2
+
+private-messages:
+  enabled: true
+  format-to-sender: "<gray>[to <white><target></white>]</gray> <message>"
+  format-to-target: "<gray>[from <white><sender></white>]</gray> <message>"
+
+placeholders:
+  # PlaceholderAPI support is optional; if PAPI isn't installed, these do nothing.
+  # If enabled and the sender has the permission below, %placeholders% in what they type
+  # will be expanded before MiniMessage parsing.
+  enabled-in-player-messages: true
+  permission: "bubblechat.placeholders"
+
+moderation:
+  global-chat-muted: false
+  # If true, join/quit/death messages are hidden while global chat mute is enabled.
+  mute-hides-system-messages: false
+
+messages:
+  join:
+    enabled: true
+    # MiniMessage supported. Placeholders: <player> <displayname>
+    format: "<green>+ <white><player></white></green>"
+  quit:
+    enabled: true
+    # MiniMessage supported. Placeholders: <player> <displayname>
+    format: "<red>- <white><player></white></red>"
+  death:
+    enabled: true
+    # If true, uses the vanilla death message as <message>
+    use-vanilla: true
+    # MiniMessage supported. Placeholders: <player> <displayname> <message>
+    format: "<dark_red>☠</dark_red> <message>"
+
+anti-spam:
+  enabled: true
+  cooldown-ms: 1100
+  duplicate-window-ms: 6000
+  max-duplicates: 1
+  caps:
+    enabled: true
+    min-length: 8
+    max-ratio: 0.65
+
+filters:
+  enabled: true
+  # Simple word filter (case-insensitive). Words are replaced with ****.
+  blocked-words: []
+  # Regex replacements, applied in order.
+  # Tip: if regex is unfamiliar, start with blocked-words above.
+  # Regex is powerful for links / patterns (examples below). If you edit patterns in YAML,
+  # prefer double escaping when using double-quotes, or switch to single-quotes.
+  # Example:
+  #  - pattern: "(?i)discord\\.gg\\/\\w+"
+  #    replacement: "<red>[link removed]</red>"
+  regex-replacements: []
+  block-links-without-permission: true
+  link-permission: "bubblechat.links"
+
+storage:
+  autosave-seconds: 60
+
+rules:
+  enabled: true
+  file: "rules.yml"
+  # If true, staff with permission will receive alerts from rule actions.
+  staff-alerts-enabled: true
+  # Editing help:
+  # - Rules live in rules.yml and can auto-reply, block, replace, log, and more.
+  # - In rules.yml you can add an optional "about:" line to explain what a rule does;
+  #   the plugin ignores unknown keys, so it's safe.
+
+logging:
+  rules-log-file: "rules.log"
+
+discordsrv:
+  # Optional: if DiscordSRV is installed, BubbleChat can send staff alerts to a Discord channel.
+  enabled: false
+  # Channel ID (as a string) where alerts go. Leave blank to disable.
+  alert-channel-id: ""
+  # Prefix added to rule alerts sent to Discord.
+  alert-prefix: "[BubbleChat]"
+
+spy:
+  commands:
+    enabled: true
+
+announcements:
+  enabled: true
+
+  opt-out:
+    enabled: true
+    default-opted-out: false
+
+  join:
+    motd:
+      enabled: true
+      messages:
+        - "<gray>Welcome to <white>BubbleCraft</white>.</gray>"
+      first-join-messages:
+        - "<gold>Welcome!</gold> <gray>Type <white>/help</white> to get started.</gray>"
+      newcomer:
+        enabled: true
+        days: 7
+        messages:
+          - "<gray>New here?</gray> <white>/help land</white> <gray>for claiming info.</gray>"
+
+    run-commands:
+      enabled: false
+      console: []
+      player: []
+
+    title:
+      enabled: false
+      title: "<gold>BubbleCraft</gold>"
+      subtitle: "<gray>Welcome back</gray>"
+      fade-in-ticks: 10
+      stay-ticks: 60
+      fade-out-ticks: 10
+
+    actionbar:
+      enabled: false
+      message: "<gray>Use <white>/help</white> for guides</gray>"
+
+    sound:
+      enabled: false
+      key: "minecraft:entity.player.levelup"
+      volume: 1.0
+      pitch: 1.0
