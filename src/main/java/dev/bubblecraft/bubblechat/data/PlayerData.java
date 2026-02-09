@@ -16,6 +16,8 @@ public final class PlayerData {
     private UUID lastReplyTarget = null;
     private boolean socialSpy = false;
 
+    private boolean commandSpy = false;
+
     private boolean announcementsOptOut = false;
 
     private boolean hideJoinMessages = false;
@@ -82,6 +84,14 @@ public final class PlayerData {
 
     public void setSocialSpy(boolean socialSpy) {
         this.socialSpy = socialSpy;
+    }
+
+    public boolean isCommandSpy() {
+        return commandSpy;
+    }
+
+    public void setCommandSpy(boolean commandSpy) {
+        this.commandSpy = commandSpy;
     }
 
     public boolean isAnnouncementsOptOut() {

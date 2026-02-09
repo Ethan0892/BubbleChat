@@ -117,114 +117,129 @@ public final class RuleEngine {
             Matcher matcher = rule.pattern().matcher(message);
             if (!matcher.find()) continue;
 
-            // Cooldowns (pre-check): if any cooldown action blocks, stop early
-            for (RuleAction action : rule.actions()) {
-                if (action.type() != RuleActionType.COOLDOWN) continue;
+            RuleResult cooldownBlocked = applyCooldowns(player, message, matcher, rule);
+            if (cooldownBlocked != null) return cooldownBlocked;
 
-                long durationMs = action.durationMs() == null ? 0L : action.durationMs();
-                if (durationMs <= 0) continue;
+            message = applyReplaceActions(rule, message);
 
-                String key = action.key();
-                if (key == null || key.isBlank()) {
-                    key = rule.id();
-                }
-                String cooldownKey = cooldownKey(player.getUniqueId(), key);
-                long now = System.currentTimeMillis();
-                long until = cooldownUntilEpochMs.getOrDefault(cooldownKey, 0L);
-                if (until > now) {
-                    long remaining = until - now;
-                    if (action.message() != null && !action.message().isBlank()) {
-                        String out = formatVars(action.message(), player, message, matcher, remaining);
-                        if (action.smallCaps()) out = SmallCaps.toSmallCapsMiniMessage(out);
-                        player.sendMessage(mm.deserialize(out));
-                    }
-                    return RuleResult.cancel(false, message);
-                }
-                cooldownUntilEpochMs.put(cooldownKey, now + durationMs);
-            }
-
-            for (RuleAction action : rule.actions()) {
-                if (action.type() == RuleActionType.REPLACE) {
-                    String replacement = action.replacement() == null ? "" : action.replacement();
-                    message = rule.pattern().matcher(message).replaceAll(replacement);
-                }
-            }
-
-            boolean cancel = false;
-            boolean silent = false;
-
-            for (RuleAction action : rule.actions()) {
-                switch (action.type()) {
-                    case CANCEL -> {
-                        cancel = true;
-                        silent = false;
-                        if (action.message() != null && !action.message().isBlank()) {
-                            String out = formatVars(action.message(), player, message, matcher, null);
-                            if (action.smallCaps()) out = SmallCaps.toSmallCapsMiniMessage(out);
-                            player.sendMessage(mm.deserialize(out));
-                        } else {
-                            player.sendMessage(mm.deserialize("<red>Your message was blocked.</red>"));
-                        }
-                    }
-                    case SILENT_CANCEL -> {
-                        cancel = true;
-                        silent = true;
-                        // sender sees nothing special
-                    }
-                    case REPLY -> {
-                        if (action.message() != null && !action.message().isBlank()) {
-                            String out = formatVars(action.message(), player, message, matcher, null);
-                            if (action.smallCaps()) out = SmallCaps.toSmallCapsMiniMessage(out);
-                            player.sendMessage(mm.deserialize(out));
-                        }
-                    }
-                    case RUN_COMMAND_CONSOLE -> {
-                        if (action.command() != null && !action.command().isBlank()) {
-                            String cmd = formatVars(action.command(), player, message, matcher, null);
-                            long delay = action.delayTicks() == null ? 0L : action.delayTicks();
-                            if (delay <= 0) {
-                                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripLeadingSlash(cmd));
-                            } else {
-                                Bukkit.getScheduler().runTaskLater(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripLeadingSlash(cmd)), delay);
-                            }
-                        }
-                    }
-                    case RUN_COMMAND_PLAYER -> {
-                        if (action.command() != null && !action.command().isBlank()) {
-                            String cmd = formatVars(action.command(), player, message, matcher, null);
-                            long delay = action.delayTicks() == null ? 0L : action.delayTicks();
-                            if (delay <= 0) {
-                                player.performCommand(stripLeadingSlash(cmd));
-                            } else {
-                                Bukkit.getScheduler().runTaskLater(plugin, () -> player.performCommand(stripLeadingSlash(cmd)), delay);
-                            }
-                        }
-                    }
-                    case COOLDOWN -> {
-                        // handled above
-                    }
-                    case NOTIFY_STAFF -> {
-                        if (notifier != null) {
-                            notifier.notifyStaff(formatVars(action.message(), player, message, matcher, null));
-                        }
-                    }
-                    case LOG -> {
-                        if (notifier != null) {
-                            notifier.log(formatVars(action.message(), player, message, matcher, null));
-                        }
-                    }
-                    case REPLACE -> {
-                        // already done
-                    }
-                }
-            }
-
-            if (cancel) {
-                return RuleResult.cancel(silent, message);
-            }
+            RuleResult actionResult = applyActions(player, message, matcher, rule, notifier);
+            if (actionResult != null) return actionResult;
         }
 
         return RuleResult.allow(message);
+    }
+
+    private RuleResult applyCooldowns(Player player, String message, Matcher matcher, Rule rule) {
+        // Cooldowns (pre-check): if any cooldown action blocks, stop early
+        for (RuleAction action : rule.actions()) {
+            if (action.type() != RuleActionType.COOLDOWN) continue;
+
+            long durationMs = action.durationMs() == null ? 0L : action.durationMs();
+            if (durationMs <= 0) continue;
+
+            String key = action.key();
+            if (key == null || key.isBlank()) {
+                key = rule.id();
+            }
+            String cooldownKey = cooldownKey(player.getUniqueId(), key);
+            long now = System.currentTimeMillis();
+            long until = cooldownUntilEpochMs.getOrDefault(cooldownKey, 0L);
+            if (until > now) {
+                long remaining = until - now;
+                if (action.message() != null && !action.message().isBlank()) {
+                    String out = formatVars(action.message(), player, message, matcher, remaining);
+                    if (action.smallCaps()) out = SmallCaps.toSmallCapsMiniMessage(out);
+                    player.sendMessage(mm.deserialize(out));
+                }
+                return RuleResult.cancel(false, message);
+            }
+
+            cooldownUntilEpochMs.put(cooldownKey, now + durationMs);
+        }
+
+        return null;
+    }
+
+    private String applyReplaceActions(Rule rule, String message) {
+        String out = message;
+        for (RuleAction action : rule.actions()) {
+            if (action.type() != RuleActionType.REPLACE) continue;
+            String replacement = action.replacement() == null ? "" : action.replacement();
+            out = rule.pattern().matcher(out).replaceAll(replacement);
+        }
+        return out;
+    }
+
+    private RuleResult applyActions(Player player, String message, Matcher matcher, Rule rule, RuleNotifier notifier) {
+        boolean cancel = false;
+        boolean silent = false;
+
+        for (RuleAction action : rule.actions()) {
+            switch (action.type()) {
+                case CANCEL -> {
+                    cancel = true;
+                    silent = false;
+                    if (action.message() != null && !action.message().isBlank()) {
+                        String out = formatVars(action.message(), player, message, matcher, null);
+                        if (action.smallCaps()) out = SmallCaps.toSmallCapsMiniMessage(out);
+                        player.sendMessage(mm.deserialize(out));
+                    } else {
+                        player.sendMessage(mm.deserialize("<red>Your message was blocked.</red>"));
+                    }
+                }
+                case SILENT_CANCEL -> {
+                    cancel = true;
+                    silent = true;
+                }
+                case REPLY -> {
+                    if (action.message() != null && !action.message().isBlank()) {
+                        String out = formatVars(action.message(), player, message, matcher, null);
+                        if (action.smallCaps()) out = SmallCaps.toSmallCapsMiniMessage(out);
+                        player.sendMessage(mm.deserialize(out));
+                    }
+                }
+                case RUN_COMMAND_CONSOLE -> {
+                    if (action.command() != null && !action.command().isBlank()) {
+                        String cmd = formatVars(action.command(), player, message, matcher, null);
+                        long delay = action.delayTicks() == null ? 0L : action.delayTicks();
+                        if (delay <= 0) {
+                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripLeadingSlash(cmd));
+                        } else {
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripLeadingSlash(cmd)), delay);
+                        }
+                    }
+                }
+                case RUN_COMMAND_PLAYER -> {
+                    if (action.command() != null && !action.command().isBlank()) {
+                        String cmd = formatVars(action.command(), player, message, matcher, null);
+                        long delay = action.delayTicks() == null ? 0L : action.delayTicks();
+                        if (delay <= 0) {
+                            player.performCommand(stripLeadingSlash(cmd));
+                        } else {
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> player.performCommand(stripLeadingSlash(cmd)), delay);
+                        }
+                    }
+                }
+                case COOLDOWN -> {
+                    // handled in applyCooldowns()
+                }
+                case NOTIFY_STAFF -> {
+                    if (notifier != null) {
+                        notifier.notifyStaff(formatVars(action.message(), player, message, matcher, null));
+                    }
+                }
+                case LOG -> {
+                    if (notifier != null) {
+                        notifier.log(formatVars(action.message(), player, message, matcher, null));
+                    }
+                }
+                case REPLACE -> {
+                    // handled in applyReplaceActions()
+                }
+            }
+        }
+
+        return cancel ? RuleResult.cancel(silent, message) : null;
     }
 
     private static String formatVars(String template, Player player, String message, Matcher matcher, Long remainingMs) {

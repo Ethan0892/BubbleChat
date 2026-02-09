@@ -1,5 +1,5 @@
 name: BubbleChat
-version: 1.0.2
+version: 1.0.3
 main: dev.bubblecraft.bubblechat.BubbleChatPlugin
 api-version: '1.21'
 author: BubbleCraft
@@ -25,6 +25,11 @@ commands:
     description: Toggle social spy
     usage: /socialspy
     aliases: [ss]
+  commandspy:
+    description: Toggle command spy (see all commands)
+    usage: /commandspy
+    aliases: [cmdspy]
+    permission: bubblechat.spy.commands
   mute:
     description: Mute a player
     usage: /mute <player> [duration] [reason]

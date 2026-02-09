@@ -49,6 +49,7 @@ public final class PlayerDataStore {
             pd.setMutedUntilEpochMs(cfg.getLong(key + ".mutedUntil", 0L));
             pd.setMuteReason(cfg.getString(key + ".muteReason", null));
             pd.setSocialSpy(cfg.getBoolean(key + ".socialSpy", false));
+            pd.setCommandSpy(cfg.getBoolean(key + ".commandSpy", false));
             pd.setShoutMode(persistShout && cfg.getBoolean(key + ".shoutMode", false));
             pd.setAnnouncementsOptOut(cfg.getBoolean(key + ".announcementsOptOut", false));
 
@@ -98,6 +99,7 @@ public final class PlayerDataStore {
             cfg.set(key + ".mutedUntil", pd.getMutedUntilEpochMs());
             cfg.set(key + ".muteReason", pd.getMuteReason());
             cfg.set(key + ".socialSpy", pd.isSocialSpy());
+            cfg.set(key + ".commandSpy", pd.isCommandSpy());
             cfg.set(key + ".announcementsOptOut", pd.isAnnouncementsOptOut());
 
             cfg.set(key + ".hideJoin", pd.isHideJoinMessages());

@@ -162,72 +162,12 @@ public final class ChatService {
         PlayerData pd = data(player);
         if (isAnnouncementsOptOutEnabled() && pd.isAnnouncementsOptOut()) return;
 
-        long now = System.currentTimeMillis();
-        long firstPlayed = player.getFirstPlayed();
-
-        boolean newcomerEnabled = plugin.getConfig().getBoolean("announcements.join.motd.newcomer.enabled", true);
-        int newcomerDays = plugin.getConfig().getInt("announcements.join.motd.newcomer.days", 7);
-        boolean newcomer = newcomerEnabled && firstPlayed > 0 && (now - firstPlayed) <= (long) newcomerDays * 86_400_000L;
-
-        // MOTD messages
-        if (plugin.getConfig().getBoolean("announcements.join.motd.enabled", true)) {
-            if (firstJoin) {
-                for (String line : plugin.getConfig().getStringList("announcements.join.motd.first-join-messages")) {
-                    if (line != null && !line.isBlank()) player.sendMessage(mm.deserialize(line));
-                }
-            } else if (newcomer) {
-                for (String line : plugin.getConfig().getStringList("announcements.join.motd.newcomer.messages")) {
-                    if (line != null && !line.isBlank()) player.sendMessage(mm.deserialize(line));
-                }
-            } else {
-                for (String line : plugin.getConfig().getStringList("announcements.join.motd.messages")) {
-                    if (line != null && !line.isBlank()) player.sendMessage(mm.deserialize(line));
-                }
-            }
-        }
-
-        // Title
-        if (plugin.getConfig().getBoolean("announcements.join.title.enabled", false)) {
-            Component title = mm.deserialize(plugin.getConfig().getString("announcements.join.title.title", ""));
-            Component subtitle = mm.deserialize(plugin.getConfig().getString("announcements.join.title.subtitle", ""));
-            int fadeIn = plugin.getConfig().getInt("announcements.join.title.fade-in-ticks", 10);
-            int stay = plugin.getConfig().getInt("announcements.join.title.stay-ticks", 60);
-            int fadeOut = plugin.getConfig().getInt("announcements.join.title.fade-out-ticks", 10);
-            player.showTitle(Title.title(title, subtitle, Times.times(Duration.ofMillis(fadeIn * 50L), Duration.ofMillis(stay * 50L), Duration.ofMillis(fadeOut * 50L))));
-        }
-
-        // Actionbar
-        if (plugin.getConfig().getBoolean("announcements.join.actionbar.enabled", false)) {
-            String msg = plugin.getConfig().getString("announcements.join.actionbar.message", "");
-            if (msg != null && !msg.isBlank()) {
-                player.sendActionBar(mm.deserialize(msg));
-            }
-        }
-
-        // Sound
-        if (plugin.getConfig().getBoolean("announcements.join.sound.enabled", false)) {
-            String key = plugin.getConfig().getString("announcements.join.sound.key", "minecraft:entity.player.levelup");
-            float vol = (float) plugin.getConfig().getDouble("announcements.join.sound.volume", 1.0);
-            float pitch = (float) plugin.getConfig().getDouble("announcements.join.sound.pitch", 1.0);
-            try {
-                player.playSound(player.getLocation(), parseBukkitSound(key), vol, pitch);
-            } catch (Exception ignored) {
-            }
-        }
-
-        // Run commands
-        if (plugin.getConfig().getBoolean("announcements.join.run-commands.enabled", false)) {
-            for (String cmd : plugin.getConfig().getStringList("announcements.join.run-commands.console")) {
-                if (cmd == null || cmd.isBlank()) continue;
-                String resolved = cmd.replace("{player}", player.getName());
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripLeadingSlash(resolved));
-            }
-            for (String cmd : plugin.getConfig().getStringList("announcements.join.run-commands.player")) {
-                if (cmd == null || cmd.isBlank()) continue;
-                String resolved = cmd.replace("{player}", player.getName());
-                player.performCommand(stripLeadingSlash(resolved));
-            }
-        }
+        boolean newcomer = isJoinNewcomer(player);
+        sendJoinMotdIfEnabled(player, firstJoin, newcomer);
+        showJoinTitleIfEnabled(player);
+        sendJoinActionbarIfEnabled(player);
+        playJoinSoundIfEnabled(player);
+        runJoinCommandsIfEnabled(player);
     }
 
     public void handleJoinMessage(PlayerJoinEvent event) {
@@ -349,6 +289,252 @@ public final class ChatService {
         return cmd.startsWith("/") ? cmd.substring(1) : cmd;
     }
 
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private void sendConfiguredLines(Player player, String path) {
+        for (String line : plugin.getConfig().getStringList(path)) {
+            if (!isBlank(line)) player.sendMessage(mm.deserialize(line));
+        }
+    }
+
+    private boolean isJoinNewcomer(Player player) {
+        long now = System.currentTimeMillis();
+        long firstPlayed = player.getFirstPlayed();
+
+        boolean newcomerEnabled = plugin.getConfig().getBoolean("announcements.join.motd.newcomer.enabled", true);
+        int newcomerDays = plugin.getConfig().getInt("announcements.join.motd.newcomer.days", 7);
+        return newcomerEnabled
+                && firstPlayed > 0
+                && (now - firstPlayed) <= (long) newcomerDays * 86_400_000L;
+    }
+
+    private void sendJoinMotdIfEnabled(Player player, boolean firstJoin, boolean newcomer) {
+        if (!plugin.getConfig().getBoolean("announcements.join.motd.enabled", true)) return;
+
+        if (firstJoin) {
+            sendConfiguredLines(player, "announcements.join.motd.first-join-messages");
+        } else if (newcomer) {
+            sendConfiguredLines(player, "announcements.join.motd.newcomer.messages");
+        } else {
+            sendConfiguredLines(player, "announcements.join.motd.messages");
+        }
+    }
+
+    private void showJoinTitleIfEnabled(Player player) {
+        if (!plugin.getConfig().getBoolean("announcements.join.title.enabled", false)) return;
+
+        Component title = mm.deserialize(plugin.getConfig().getString("announcements.join.title.title", ""));
+        Component subtitle = mm.deserialize(plugin.getConfig().getString("announcements.join.title.subtitle", ""));
+        int fadeIn = plugin.getConfig().getInt("announcements.join.title.fade-in-ticks", 10);
+        int stay = plugin.getConfig().getInt("announcements.join.title.stay-ticks", 60);
+        int fadeOut = plugin.getConfig().getInt("announcements.join.title.fade-out-ticks", 10);
+        player.showTitle(Title.title(title, subtitle, Times.times(Duration.ofMillis(fadeIn * 50L), Duration.ofMillis(stay * 50L), Duration.ofMillis(fadeOut * 50L))));
+    }
+
+    private void sendJoinActionbarIfEnabled(Player player) {
+        if (!plugin.getConfig().getBoolean("announcements.join.actionbar.enabled", false)) return;
+        String msg = plugin.getConfig().getString("announcements.join.actionbar.message", "");
+        if (!isBlank(msg)) {
+            player.sendActionBar(mm.deserialize(msg));
+        }
+    }
+
+    private void playJoinSoundIfEnabled(Player player) {
+        if (!plugin.getConfig().getBoolean("announcements.join.sound.enabled", false)) return;
+        String key = plugin.getConfig().getString("announcements.join.sound.key", "minecraft:entity.player.levelup");
+        float vol = (float) plugin.getConfig().getDouble("announcements.join.sound.volume", 1.0);
+        float pitch = (float) plugin.getConfig().getDouble("announcements.join.sound.pitch", 1.0);
+        try {
+            player.playSound(player.getLocation(), parseBukkitSound(key), vol, pitch);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void runJoinCommandsIfEnabled(Player player) {
+        if (!plugin.getConfig().getBoolean("announcements.join.run-commands.enabled", false)) return;
+
+        for (String cmd : plugin.getConfig().getStringList("announcements.join.run-commands.console")) {
+            if (isBlank(cmd)) continue;
+            String resolved = cmd.replace("{player}", player.getName());
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripLeadingSlash(resolved));
+        }
+        for (String cmd : plugin.getConfig().getStringList("announcements.join.run-commands.player")) {
+            if (isBlank(cmd)) continue;
+            String resolved = cmd.replace("{player}", player.getName());
+            player.performCommand(stripLeadingSlash(resolved));
+        }
+    }
+
+    private boolean blockIfMuted(Player sender, PlayerData pd, long now) {
+        if (!pd.isMutedNow(now) || sender.hasPermission("bubblechat.bypass.mute")) return false;
+
+        long remainingMs = pd.getMutedUntilEpochMs() - now;
+        sender.sendMessage(mm.deserialize("<red>You are muted for another " + formatDuration(remainingMs) + ".</red>"));
+        if (!isBlank(pd.getMuteReason())) {
+            sender.sendMessage(mm.deserialize("<gray>Reason: " + escapeMini(pd.getMuteReason()) + "</gray>"));
+        }
+        return true;
+    }
+
+    private boolean blockIfGlobalChatMuted(Player sender) {
+        if (!plugin.getConfig().getBoolean("moderation.global-chat-muted", false)) return false;
+        if (sender.hasPermission("bubblechat.bypass.chatmute")) return false;
+
+        sender.sendMessage(mm.deserialize("<red>Chat is currently muted.</red>"));
+        return true;
+    }
+
+    private String stripLegacyColorsIfEnabled(String plain) {
+        if (!plugin.getConfig().getBoolean("chat.message.strip-legacy-section-colors", true)) return plain;
+        return TextSanitizer.stripLegacySectionColors(plain);
+    }
+
+    private boolean blockIfTooLong(Player sender, String plain) {
+        int maxLen = plugin.getConfig().getInt("chat.message.max-length", 256);
+        if (maxLen > 0 && plain.length() > maxLen) {
+            sender.sendMessage(mm.deserialize("<red>Your message is too long (max " + maxLen + ").</red>"));
+            return true;
+        }
+        return false;
+    }
+
+    private String applyAntiSpamOrNull(Player sender, PlayerData pd, long now, String plain) {
+        if (!plugin.getConfig().getBoolean("anti-spam.enabled", true) || sender.hasPermission("bubblechat.bypass.spam")) {
+            return plain;
+        }
+
+        long cooldownMs = plugin.getConfig().getLong("anti-spam.cooldown-ms", 1100);
+        if (cooldownMs > 0 && (now - pd.getLastChatAtEpochMs()) < cooldownMs) {
+            sender.sendMessage(mm.deserialize("<red>Please slow down.</red>"));
+            return null;
+        }
+
+        String normalized = TextSanitizer.normalizeForDuplicateCheck(plain);
+        long dupWindow = plugin.getConfig().getLong("anti-spam.duplicate-window-ms", 6000);
+        int maxDuplicates = plugin.getConfig().getInt("anti-spam.max-duplicates", 1);
+
+        if (pd.getLastChatNormalized() != null
+                && normalized.equals(pd.getLastChatNormalized())
+                && (now - pd.getLastChatAtEpochMs()) <= dupWindow) {
+            pd.setDuplicateCount(pd.getDuplicateCount() + 1);
+            if (pd.getDuplicateCount() > maxDuplicates) {
+                sender.sendMessage(mm.deserialize("<red>Please do not repeat messages.</red>"));
+                return null;
+            }
+        } else {
+            pd.setDuplicateCount(0);
+            pd.setLastChatNormalized(normalized);
+        }
+
+        // Caps filter
+        if (plugin.getConfig().getBoolean("anti-spam.caps.enabled", true)) {
+            int minLen = plugin.getConfig().getInt("anti-spam.caps.min-length", 8);
+            double maxRatio = plugin.getConfig().getDouble("anti-spam.caps.max-ratio", 0.65);
+            if (plain.length() >= minLen) {
+                double ratio = uppercaseRatio(plain);
+                if (ratio > maxRatio) {
+                    return plain.toLowerCase(Locale.ROOT);
+                }
+            }
+        }
+
+        return plain;
+    }
+
+    private String applyFiltersOrNull(Player sender, String plain) {
+        if (!plugin.getConfig().getBoolean("filters.enabled", true) || sender.hasPermission("bubblechat.bypass.filter")) {
+            return plain;
+        }
+        return applyFilters(sender, plain);
+    }
+
+    private ChatChannel ensurePermittedChannel(Player sender, PlayerData pd) {
+        ChatChannel channel = pd.getChannel();
+        if (channel == ChatChannel.STAFF && !sender.hasPermission("bubblechat.channel.staff")) {
+            channel = ChatChannel.GLOBAL;
+            pd.setChannel(channel);
+        }
+        return channel;
+    }
+
+    private String applyChannelRulesOrNull(Player sender, ChatChannel channel, String plain) {
+        if (ruleEngine == null) return plain;
+        RuleResult rr = ruleEngine.applyChat(sender, plain, ruleNotifier);
+        if (rr.isCancelled()) {
+            if (rr.isSilent()) {
+                sender.sendMessage(renderChatMessage(sender, channel, rr.message()));
+            }
+            return null;
+        }
+        return rr.message();
+    }
+
+    private record RadiusParsed(ChatType type, String trimmed) {
+    }
+
+    private RadiusParsed parseRadiusPrefix(Player sender, PlayerData pd, String messagePlain) {
+        boolean questionEnabled = plugin.getConfig().getBoolean("chat.question-enabled", true);
+        boolean canShout = sender.hasPermission("bubblechat.chat.shout");
+        boolean canQuestion = sender.hasPermission("bubblechat.chat.question");
+
+        String trimmed = messagePlain == null ? "" : messagePlain;
+        ChatType type = pd.isShoutMode() ? ChatType.SHOUT : ChatType.NORMAL;
+
+        if (!trimmed.isEmpty()) {
+            char first = trimmed.charAt(0);
+            if (first == '!' && canShout) {
+                type = ChatType.SHOUT;
+                trimmed = trimmed.substring(1).stripLeading();
+            } else if (first == '?' && questionEnabled && canQuestion) {
+                type = ChatType.QUESTION;
+                trimmed = trimmed.substring(1).stripLeading();
+            }
+        }
+
+        return new RadiusParsed(type, trimmed);
+    }
+
+    private String applyRadiusRulesOrNull(Player sender, ChatType type, String trimmed) {
+        if (ruleEngine == null) return trimmed;
+        RuleResult rr = ruleEngine.applyChat(sender, trimmed, ruleNotifier);
+        if (rr.isCancelled()) {
+            if (rr.isSilent()) {
+                sender.sendMessage(renderRadiusChatMessage(sender, type, rr.message()));
+            }
+            return null;
+        }
+        return rr.message();
+    }
+
+    private List<Player> computeRadiusRecipients(Player sender, ChatType type) {
+        int radius = plugin.getConfig().getInt("chat.radius", 0);
+        boolean global = radius <= 0 || type == ChatType.SHOUT || type == ChatType.QUESTION;
+
+        List<Player> recipients = new ArrayList<>();
+        if (global) {
+            recipients.addAll(Bukkit.getOnlinePlayers());
+            return recipients;
+        }
+
+        Location origin = sender.getLocation();
+        double maxDistSq = (double) radius * (double) radius;
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (!p.getWorld().equals(sender.getWorld())) continue;
+            if (p.getLocation().distanceSquared(origin) <= maxDistSq) {
+                recipients.add(p);
+            }
+        }
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (!p.hasPermission("bubblechat.chat.spy")) continue;
+            if (!recipients.contains(p)) recipients.add(p);
+        }
+
+        return recipients;
+    }
+
     public PlayerData data(Player player) {
         return dataStore.get(player.getUniqueId());
     }
@@ -387,81 +573,20 @@ public final class ChatService {
 
         PlayerData pd = data(sender);
 
-        if (pd.isMutedNow(now) && !sender.hasPermission("bubblechat.bypass.mute")) {
-            long remainingMs = pd.getMutedUntilEpochMs() - now;
-            sender.sendMessage(mm.deserialize("<red>You are muted for another " + formatDuration(remainingMs) + ".</red>"));
-            if (pd.getMuteReason() != null && !pd.getMuteReason().isBlank()) {
-                sender.sendMessage(mm.deserialize("<gray>Reason: " + escapeMini(pd.getMuteReason()) + "</gray>"));
-            }
-            return;
-        }
-
-        if (plugin.getConfig().getBoolean("moderation.global-chat-muted", false)
-                && !sender.hasPermission("bubblechat.bypass.chatmute")) {
-            sender.sendMessage(mm.deserialize("<red>Chat is currently muted.</red>"));
-            return;
-        }
+        if (blockIfMuted(sender, pd, now)) return;
+        if (blockIfGlobalChatMuted(sender)) return;
 
         String plain = PlainTextComponentSerializer.plainText().serialize(originalComponent);
+        plain = stripLegacyColorsIfEnabled(plain);
+        if (blockIfTooLong(sender, plain)) return;
 
-        if (plugin.getConfig().getBoolean("chat.message.strip-legacy-section-colors", true)) {
-            plain = TextSanitizer.stripLegacySectionColors(plain);
-        }
-
-        int maxLen = plugin.getConfig().getInt("chat.message.max-length", 256);
-        if (maxLen > 0 && plain.length() > maxLen) {
-            sender.sendMessage(mm.deserialize("<red>Your message is too long (max " + maxLen + ").</red>"));
-            return;
-        }
-
-        // Anti-spam
-        if (plugin.getConfig().getBoolean("anti-spam.enabled", true) && !sender.hasPermission("bubblechat.bypass.spam")) {
-            long cooldownMs = plugin.getConfig().getLong("anti-spam.cooldown-ms", 1100);
-            if (cooldownMs > 0 && (now - pd.getLastChatAtEpochMs()) < cooldownMs) {
-                sender.sendMessage(mm.deserialize("<red>Please slow down.</red>"));
-                return;
-            }
-
-            String normalized = TextSanitizer.normalizeForDuplicateCheck(plain);
-            long dupWindow = plugin.getConfig().getLong("anti-spam.duplicate-window-ms", 6000);
-            int maxDuplicates = plugin.getConfig().getInt("anti-spam.max-duplicates", 1);
-
-            if (pd.getLastChatNormalized() != null
-                    && normalized.equals(pd.getLastChatNormalized())
-                    && (now - pd.getLastChatAtEpochMs()) <= dupWindow) {
-                pd.setDuplicateCount(pd.getDuplicateCount() + 1);
-                if (pd.getDuplicateCount() > maxDuplicates) {
-                    sender.sendMessage(mm.deserialize("<red>Please do not repeat messages.</red>"));
-                    return;
-                }
-            } else {
-                pd.setDuplicateCount(0);
-                pd.setLastChatNormalized(normalized);
-            }
-
-            // Caps filter
-            if (plugin.getConfig().getBoolean("anti-spam.caps.enabled", true)) {
-                int minLen = plugin.getConfig().getInt("anti-spam.caps.min-length", 8);
-                double maxRatio = plugin.getConfig().getDouble("anti-spam.caps.max-ratio", 0.65);
-                if (plain.length() >= minLen) {
-                    double ratio = uppercaseRatio(plain);
-                    if (ratio > maxRatio) {
-                        plain = plain.toLowerCase(Locale.ROOT);
-                    }
-                }
-            }
-        }
+        plain = applyAntiSpamOrNull(sender, pd, now, plain);
+        if (plain == null) return;
 
         pd.setLastChatAtEpochMs(now);
 
-        // Filters
-        if (plugin.getConfig().getBoolean("filters.enabled", true) && !sender.hasPermission("bubblechat.bypass.filter")) {
-            plain = applyFilters(sender, plain);
-            if (plain == null) {
-                // blocked
-                return;
-            }
-        }
+        plain = applyFiltersOrNull(sender, plain);
+        if (plain == null) return;
 
         String mode = plugin.getConfig().getString("chat.mode", "channels");
         if (mode != null && mode.equalsIgnoreCase("radius")) {
@@ -469,23 +594,10 @@ public final class ChatService {
             return;
         }
 
-        ChatChannel channel = pd.getChannel();
-        if (channel == ChatChannel.STAFF && !sender.hasPermission("bubblechat.channel.staff")) {
-            channel = ChatChannel.GLOBAL;
-            pd.setChannel(channel);
-        }
+        ChatChannel channel = ensurePermittedChannel(sender, pd);
 
-        // Rules (chat) for channel mode
-        if (ruleEngine != null) {
-            RuleResult rr = ruleEngine.applyChat(sender, plain, ruleNotifier);
-            if (rr.isCancelled()) {
-                if (rr.isSilent()) {
-                    sender.sendMessage(renderChatMessage(sender, channel, rr.message()));
-                }
-                return;
-            }
-            plain = rr.message();
-        }
+        plain = applyChannelRulesOrNull(sender, channel, plain);
+        if (plain == null) return;
 
         List<Player> recipients = computeRecipients(sender, channel);
 
@@ -537,78 +649,29 @@ public final class ChatService {
 
         PlayerData pd = data(sender);
 
-        if (pd.isMutedNow(now) && !sender.hasPermission("bubblechat.bypass.mute")) {
-            long remainingMs = pd.getMutedUntilEpochMs() - now;
-            sender.sendMessage(mm.deserialize("<red>You are muted for another " + formatDuration(remainingMs) + ".</red>"));
-            if (pd.getMuteReason() != null && !pd.getMuteReason().isBlank()) {
-                sender.sendMessage(mm.deserialize("<gray>Reason: " + escapeMini(pd.getMuteReason()) + "</gray>"));
-            }
+        if (blockIfMuted(sender, pd, now)) {
             return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
         }
-
-        if (plugin.getConfig().getBoolean("moderation.global-chat-muted", false)
-                && !sender.hasPermission("bubblechat.bypass.chatmute")) {
-            sender.sendMessage(mm.deserialize("<red>Chat is currently muted.</red>"));
+        if (blockIfGlobalChatMuted(sender)) {
             return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
         }
 
         String plain = PlainTextComponentSerializer.plainText().serialize(originalComponent);
-
-        if (plugin.getConfig().getBoolean("chat.message.strip-legacy-section-colors", true)) {
-            plain = TextSanitizer.stripLegacySectionColors(plain);
-        }
-
-        int maxLen = plugin.getConfig().getInt("chat.message.max-length", 256);
-        if (maxLen > 0 && plain.length() > maxLen) {
-            sender.sendMessage(mm.deserialize("<red>Your message is too long (max " + maxLen + ").</red>"));
+        plain = stripLegacyColorsIfEnabled(plain);
+        if (blockIfTooLong(sender, plain)) {
             return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
         }
 
-        // Anti-spam
-        if (plugin.getConfig().getBoolean("anti-spam.enabled", true) && !sender.hasPermission("bubblechat.bypass.spam")) {
-            long cooldownMs = plugin.getConfig().getLong("anti-spam.cooldown-ms", 1100);
-            if (cooldownMs > 0 && (now - pd.getLastChatAtEpochMs()) < cooldownMs) {
-                sender.sendMessage(mm.deserialize("<red>Please slow down.</red>"));
-                return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
-            }
-
-            String normalized = TextSanitizer.normalizeForDuplicateCheck(plain);
-            long dupWindow = plugin.getConfig().getLong("anti-spam.duplicate-window-ms", 6000);
-            int maxDuplicates = plugin.getConfig().getInt("anti-spam.max-duplicates", 1);
-
-            if (pd.getLastChatNormalized() != null
-                    && normalized.equals(pd.getLastChatNormalized())
-                    && (now - pd.getLastChatAtEpochMs()) <= dupWindow) {
-                pd.setDuplicateCount(pd.getDuplicateCount() + 1);
-                if (pd.getDuplicateCount() > maxDuplicates) {
-                    sender.sendMessage(mm.deserialize("<red>Please do not repeat messages.</red>"));
-                    return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
-                }
-            } else {
-                pd.setDuplicateCount(0);
-                pd.setLastChatNormalized(normalized);
-            }
-
-            if (plugin.getConfig().getBoolean("anti-spam.caps.enabled", true)) {
-                int minLen2 = plugin.getConfig().getInt("anti-spam.caps.min-length", 8);
-                double maxRatio = plugin.getConfig().getDouble("anti-spam.caps.max-ratio", 0.65);
-                if (plain.length() >= minLen2) {
-                    double ratio = uppercaseRatio(plain);
-                    if (ratio > maxRatio) {
-                        plain = plain.toLowerCase(Locale.ROOT);
-                    }
-                }
-            }
+        plain = applyAntiSpamOrNull(sender, pd, now, plain);
+        if (plain == null) {
+            return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
         }
 
         pd.setLastChatAtEpochMs(now);
 
-        // Filters
-        if (plugin.getConfig().getBoolean("filters.enabled", true) && !sender.hasPermission("bubblechat.bypass.filter")) {
-            plain = applyFilters(sender, plain);
-            if (plain == null) {
-                return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
-            }
+        plain = applyFiltersOrNull(sender, plain);
+        if (plain == null) {
+            return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
         }
 
         String mode = plugin.getConfig().getString("chat.mode", "channels");
@@ -616,21 +679,11 @@ public final class ChatService {
             return planRadius(sender, plain, signedMessage, removePerm, removeButton);
         }
 
-        ChatChannel channel = pd.getChannel();
-        if (channel == ChatChannel.STAFF && !sender.hasPermission("bubblechat.channel.staff")) {
-            channel = ChatChannel.GLOBAL;
-            pd.setChannel(channel);
-        }
+        ChatChannel channel = ensurePermittedChannel(sender, pd);
 
-        if (ruleEngine != null) {
-            RuleResult rr = ruleEngine.applyChat(sender, plain, ruleNotifier);
-            if (rr.isCancelled()) {
-                if (rr.isSilent()) {
-                    sender.sendMessage(renderChatMessage(sender, channel, rr.message()));
-                }
-                return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
-            }
-            plain = rr.message();
+        plain = applyChannelRulesOrNull(sender, channel, plain);
+        if (plain == null) {
+            return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
         }
 
         List<Player> recipients = computeRecipients(sender, channel);
@@ -653,60 +706,14 @@ public final class ChatService {
     private ChatPlan planRadius(Player sender, String messagePlain, Object signedMessage, String removePerm, String removeButton) {
         PlayerData pd = data(sender);
 
-        boolean questionEnabled = plugin.getConfig().getBoolean("chat.question-enabled", true);
-        boolean canShout = sender.hasPermission("bubblechat.chat.shout");
-        boolean canQuestion = sender.hasPermission("bubblechat.chat.question");
-
-        String trimmed = messagePlain == null ? "" : messagePlain;
-        ChatType type = ChatType.NORMAL;
-
-        if (pd.isShoutMode()) {
-            type = ChatType.SHOUT;
+        RadiusParsed parsed = parseRadiusPrefix(sender, pd, messagePlain);
+        ChatType type = parsed.type();
+        String trimmed = applyRadiusRulesOrNull(sender, type, parsed.trimmed());
+        if (trimmed == null) {
+            return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
         }
 
-        if (!trimmed.isEmpty()) {
-            char first = trimmed.charAt(0);
-            if (first == '!' && canShout) {
-                type = ChatType.SHOUT;
-                trimmed = trimmed.substring(1).stripLeading();
-            } else if (first == '?' && questionEnabled && canQuestion) {
-                type = ChatType.QUESTION;
-                trimmed = trimmed.substring(1).stripLeading();
-            }
-        }
-
-        if (ruleEngine != null) {
-            RuleResult rr = ruleEngine.applyChat(sender, trimmed, ruleNotifier);
-            if (rr.isCancelled()) {
-                if (rr.isSilent()) {
-                    sender.sendMessage(renderRadiusChatMessage(sender, type, rr.message()));
-                }
-                return new ChatPlan(true, Set.of(), Component.empty(), null, removePerm, removeButton);
-            }
-            trimmed = rr.message();
-        }
-
-        int radius = plugin.getConfig().getInt("chat.radius", 0);
-        boolean global = radius <= 0 || type == ChatType.SHOUT || type == ChatType.QUESTION;
-
-        List<Player> recipients = new ArrayList<>();
-        if (global) {
-            recipients.addAll(Bukkit.getOnlinePlayers());
-        } else {
-            Location origin = sender.getLocation();
-            double maxDistSq = (double) radius * (double) radius;
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (!p.getWorld().equals(sender.getWorld())) continue;
-                if (p.getLocation().distanceSquared(origin) <= maxDistSq) {
-                    recipients.add(p);
-                }
-            }
-
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (!p.hasPermission("bubblechat.chat.spy")) continue;
-                if (!recipients.contains(p)) recipients.add(p);
-            }
-        }
+        List<Player> recipients = computeRadiusRecipients(sender, type);
 
         Set<UUID> allowed = new HashSet<>();
         for (Player recipient : recipients) {
@@ -828,63 +835,12 @@ public final class ChatService {
     private void handleRadiusChat(Player sender, String messagePlain) {
         PlayerData pd = data(sender);
 
-        boolean questionEnabled = plugin.getConfig().getBoolean("chat.question-enabled", true);
-        boolean canShout = sender.hasPermission("bubblechat.chat.shout");
-        boolean canQuestion = sender.hasPermission("bubblechat.chat.question");
+        RadiusParsed parsed = parseRadiusPrefix(sender, pd, messagePlain);
+        ChatType type = parsed.type();
+        String trimmed = applyRadiusRulesOrNull(sender, type, parsed.trimmed());
+        if (trimmed == null) return;
 
-        String trimmed = messagePlain == null ? "" : messagePlain;
-        ChatType type = ChatType.NORMAL;
-
-        boolean shoutMode = pd.isShoutMode();
-        if (shoutMode) {
-            type = ChatType.SHOUT;
-        }
-
-        if (!trimmed.isEmpty()) {
-            char first = trimmed.charAt(0);
-            if (first == '!' && canShout) {
-                type = ChatType.SHOUT;
-                trimmed = trimmed.substring(1).stripLeading();
-            } else if (first == '?' && questionEnabled && canQuestion) {
-                type = ChatType.QUESTION;
-                trimmed = trimmed.substring(1).stripLeading();
-            }
-        }
-
-        // Rules (chat) for radius mode, applied after shout/question prefixes are processed
-        if (ruleEngine != null) {
-            RuleResult rr = ruleEngine.applyChat(sender, trimmed, ruleNotifier);
-            if (rr.isCancelled()) {
-                if (rr.isSilent()) {
-                    sender.sendMessage(renderRadiusChatMessage(sender, type, rr.message()));
-                }
-                return;
-            }
-            trimmed = rr.message();
-        }
-
-        int radius = plugin.getConfig().getInt("chat.radius", 0);
-        boolean global = radius <= 0 || type == ChatType.SHOUT || type == ChatType.QUESTION;
-
-        List<Player> recipients = new ArrayList<>();
-        if (global) {
-            recipients.addAll(Bukkit.getOnlinePlayers());
-        } else {
-            Location origin = sender.getLocation();
-            double maxDistSq = (double) radius * (double) radius;
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (!p.getWorld().equals(sender.getWorld())) continue;
-                if (p.getLocation().distanceSquared(origin) <= maxDistSq) {
-                    recipients.add(p);
-                }
-            }
-
-            // chat spy: see local chat regardless of radius
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (!p.hasPermission("bubblechat.chat.spy")) continue;
-                if (!recipients.contains(p)) recipients.add(p);
-            }
-        }
+        List<Player> recipients = computeRadiusRecipients(sender, type);
 
         Component rendered = renderRadiusChatMessage(sender, type, trimmed);
 
@@ -1418,11 +1374,26 @@ public final class ChatService {
         return plugin.getConfig().getBoolean("spy.commands.enabled", true);
     }
 
+    public void toggleCommandSpy(Player player) {
+        if (player == null) return;
+        if (!isCommandSpyEnabled()) {
+            player.sendMessage(mm.deserialize("<red>CommandSpy is disabled in config.</red>"));
+            return;
+        }
+
+        PlayerData pd = data(player);
+        pd.setCommandSpy(!pd.isCommandSpy());
+        player.sendMessage(mm.deserialize(pd.isCommandSpy()
+                ? "<green>CommandSpy enabled.</green>"
+                : "<red>CommandSpy disabled.</red>"));
+    }
+
     public void notifyCommandSpy(Player actor, String commandLine) {
         Component c = mm.deserialize("<dark_gray>[CMD]</dark_gray> <gray>" + escapeMini(actor.getName()) + "</gray> <white>" + escapeMini(commandLine) + "</white>");
         for (Player p : Bukkit.getOnlinePlayers()) {
             if (p.equals(actor)) continue;
             if (!p.hasPermission("bubblechat.spy.commands")) continue;
+            if (!data(p).isCommandSpy()) continue;
             p.sendMessage(c);
         }
     }

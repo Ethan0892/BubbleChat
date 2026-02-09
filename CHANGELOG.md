@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on *Keep a Changelog*, and this project follows semantic versioning.
 
+## [1.0.3] - 2026-02-09
+### Added
+- Admin toggle for command spying: `/commandspy` (alias: `/cmdspy`).
+
+### Changed
+- Command spy now respects a per-player toggle (permission still required).
+- Reduced method complexity in `ChatService` and `RuleEngine` via helper extraction.
+
 ## [1.0.2] - 2026-01-13
 ### Added
 - ChatColor2 compatibility: apply player chat colour (and `&#RRGGBB`) when BubbleChat is rendering messages.

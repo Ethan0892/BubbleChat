@@ -15,6 +15,7 @@ import dev.bubblecraft.bubblechat.command.MuteCommand;
 import dev.bubblecraft.bubblechat.command.PrivateMessageCommand;
 import dev.bubblecraft.bubblechat.command.ReplyCommand;
 import dev.bubblecraft.bubblechat.command.SocialSpyCommand;
+import dev.bubblecraft.bubblechat.command.CommandSpyCommand;
 import dev.bubblecraft.bubblechat.command.MeCommand;
 import dev.bubblecraft.bubblechat.command.ToggleCommand;
 import dev.bubblecraft.bubblechat.command.UnmuteCommand;
@@ -77,6 +78,7 @@ public final class BubbleChatPlugin extends JavaPlugin {
         getCommand("msg").setExecutor(new PrivateMessageCommand(chatService));
         getCommand("reply").setExecutor(new ReplyCommand(chatService));
         getCommand("socialspy").setExecutor(new SocialSpyCommand(chatService));
+        getCommand("commandspy").setExecutor(new CommandSpyCommand(chatService));
         getCommand("mute").setExecutor(new MuteCommand(chatService));
         getCommand("unmute").setExecutor(new UnmuteCommand(chatService));
         getCommand("ignore").setExecutor(new IgnoreCommand(chatService));
